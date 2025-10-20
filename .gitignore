@@ -1,5 +1,5 @@
 # Binaries
-otelgen
+/otelgen
 *.exe
 *.dll
 *.so
