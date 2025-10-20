@@ -35,7 +35,7 @@ func main() {
 
 	// Common flags for all commands
 	addCommonFlags := func(cmd *cobra.Command) {
-		cmd.Flags().StringVar(&otlpEndpoint, "otlp-endpoint", "", "OTLP endpoint (e.g., grpcs://host:4317, http://host:4318)")
+		cmd.Flags().StringVar(&otlpEndpoint, "otlp-endpoint", "", "OTLP endpoint (e.g., grpcs://host:443, http://host:80)")
 		cmd.Flags().StringVar(&serviceName, "service", "otelgen", "Service name")
 		cmd.Flags().IntVar(&rate, "rate", 1, "Rate of telemetry generation per second")
 		cmd.Flags().StringVar(&duration, "duration", "10s", "Duration to generate telemetry (e.g., 10s, 1m)")

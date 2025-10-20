@@ -61,7 +61,7 @@ func (e *Endpoint) IsHTTP() bool {
 
 // ParseEndpoint parses the endpoint string and returns an Endpoint
 // Supports: grpc://host:port, grpcs://host:port, http://host:port, https://host:port
-// If port is not specified, uses default ports: 4317 for gRPC, 4318 for HTTP
+// Default ports: grpc://->443, grpcs://->443, http://->80, https://->443
 func ParseEndpoint(endpoint string) (*Endpoint, error) {
 	if endpoint == "" {
 		return nil, fmt.Errorf("endpoint cannot be empty")
@@ -99,10 +99,15 @@ func ParseEndpoint(endpoint string) (*Endpoint, error) {
 	port := u.Port()
 	if port == "" {
 		// Use default ports
-		if ep.IsGRPC() {
-			port = "4317"
-		} else {
-			port = "4318"
+		switch ep.Protocol {
+		case ProtocolGRPC:
+			port = "443"
+		case ProtocolGRPCS:
+			port = "443"
+		case ProtocolHTTP:
+			port = "80"
+		case ProtocolHTTPS:
+			port = "443"
 		}
 	}
 	ep.Port = port
