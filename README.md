@@ -126,7 +126,10 @@ docker run --rm otelgen logs \
 | `--service` | Service name for telemetry | otelgen | No |
 | `--rate` | Number of telemetry items per second | 1 | No |
 | `--duration` | How long to generate telemetry (e.g., 10s, 1m, 1h) | 10s | No |
-| `--insecure` | Use insecure connection (not implemented yet) | false | No |
+| `--size` | Payload size to increase data volume (e.g., 1kb, 1mb, 500b) | - | No |
+| `--headers` | Additional headers (e.g., key1=value1,key2=value2) | - | No |
+| `--verbose` | Enable verbose logging | false | No |
+| `--insecure-skip-verify` | Skip TLS certificate verification (insecure) | false | No |
 
 ## Protocol Support
 
@@ -154,6 +157,15 @@ If you don't specify a port in the endpoint URL, the following defaults are used
 
 # Production endpoint test
 ./otelgen logs --otlp-endpoint grpcs://prod.example.com:443 --service prod-app --rate 10 --duration 30s
+
+# Test with increased payload size (1KB per trace)
+./otelgen traces --otlp-endpoint grpc://localhost --service test-app --size 1kb --duration 10s
+
+# Load test with large payloads (1MB per metric)
+./otelgen metrics --otlp-endpoint http://localhost:80 --service load-test --size 1mb --rate 10 --duration 30s
+
+# Test with custom payload size (500 bytes)
+./otelgen logs --otlp-endpoint grpcs://example.com:443 --service test-app --size 500b --rate 5 --duration 1m
 ```
 
 ## What Gets Generated
@@ -162,13 +174,59 @@ If you don't specify a port in the endpoint URL, the following defaults are used
 - Parent spans with child spans
 - Random operation types and IDs
 - Realistic timing and nesting
+- Optional payload padding via attributes when `--size` is specified
 
 ### Metrics
 - Counter: `otelgen.requests`
 - Histogram: `otelgen.duration`
 - Gauge: `otelgen.cpu_usage`
+- Optional payload padding via attributes when `--size` is specified
 
 ### Logs
-- Various log levels (INFO, WARN, ERROR, DEBUG)
-- Realistic log messages
-- Additional attributes (component, request_id, user_id)
+- Proper OTLP log records with resource attributes
+- Various log levels (INFO, WARN, ERROR, DEBUG) mapped to appropriate severity
+- Log body contains realistic JSON structured data including:
+  - Timestamp, service name, environment, version
+  - HTTP request details (method, endpoint, status code, duration, user agent, client IP)
+  - User information (ID, email, role, organization)
+  - Error details with stack traces (for ERROR level)
+  - Database query metrics (30% of logs)
+- Additional attributes: component, request_id, user_id
+- When `--size` is specified, the JSON body is expanded to reach target size
+
+#### Sample Log Output
+```json
+{
+  "timestamp": "2025-01-23T10:15:30.123456789Z",
+  "level": "INFO",
+  "message": "Request processed successfully",
+  "service": "api-gateway",
+  "environment": "production",
+  "version": "v1.2.3",
+  "host": "server-3",
+  "pod_id": "pod-42-aBcDeFgH",
+  "request_id": "req-XyZ123AbC456-1737628530",
+  "trace_id": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6",
+  "span_id": "q1w2e3r4t5y6u7i8",
+  "http": {
+    "method": "POST",
+    "endpoint": "/api/v1/orders",
+    "status_code": 201,
+    "duration_ms": 234,
+    "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+    "client_ip": "10.142.15.89"
+  },
+  "user": {
+    "id": "user_1234",
+    "email": "user1234@example.com",
+    "role": "user",
+    "org_id": "org_56"
+  },
+  "database": {
+    "query_time_ms": 45,
+    "rows_affected": 1,
+    "connection_id": 23,
+    "database": "orders_db"
+  }
+}
+```

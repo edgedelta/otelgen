@@ -22,7 +22,7 @@ import (
 )
 
 // GenerateTraces generates trace data and sends it to the specified OTLP endpoint
-func GenerateTraces(endpoint *Endpoint, serviceName string, rate int, durationStr string, headers map[string]string, verbose bool, insecureSkip bool) error {
+func GenerateTraces(endpoint *Endpoint, serviceName string, rate int, durationStr string, payloadSize int64, headers map[string]string, verbose bool, insecureSkip bool) error {
 	duration, err := time.ParseDuration(durationStr)
 	if err != nil {
 		return fmt.Errorf("invalid duration: %w", err)
@@ -286,7 +286,7 @@ func GenerateTraces(endpoint *Endpoint, serviceName string, rate int, durationSt
 			fmt.Printf("Generated %d traces\n", count)
 			return nil
 		case <-ticker.C:
-			if err := generateTrace(ctx, tracer); err != nil {
+			if err := generateTrace(ctx, tracer, payloadSize); err != nil {
 				fmt.Printf("Error generating trace: %v\n", err)
 			}
 			count++
@@ -294,13 +294,21 @@ func GenerateTraces(endpoint *Endpoint, serviceName string, rate int, durationSt
 	}
 }
 
-func generateTrace(ctx context.Context, tracer trace.Tracer) error {
+func generateTrace(ctx context.Context, tracer trace.Tracer, payloadSize int64) error {
+	// Create attributes list
+	attrs := []attribute.KeyValue{
+		attribute.String("operation.type", "http"),
+		attribute.Int("operation.id", rand.Intn(1000)),
+	}
+
+	// Add padding attribute if size is specified
+	if payloadSize > 0 {
+		attrs = append(attrs, attribute.String("payload.data", GeneratePadding(payloadSize)))
+	}
+
 	// Create a parent span
 	ctx, span := tracer.Start(ctx, "parent-operation",
-		trace.WithAttributes(
-			attribute.String("operation.type", "http"),
-			attribute.Int("operation.id", rand.Intn(1000)),
-		))
+		trace.WithAttributes(attrs...))
 	defer span.End()
 
 	// Simulate some work
@@ -308,11 +316,18 @@ func generateTrace(ctx context.Context, tracer trace.Tracer) error {
 
 	// Create child spans
 	for i := 0; i < rand.Intn(3)+1; i++ {
+		childAttrs := []attribute.KeyValue{
+			attribute.String("child.type", "db"),
+			attribute.Int("child.id", i),
+		}
+
+		// Add padding to child spans as well if size is specified
+		if payloadSize > 0 {
+			childAttrs = append(childAttrs, attribute.String("payload.data", GeneratePadding(payloadSize)))
+		}
+
 		_, childSpan := tracer.Start(ctx, fmt.Sprintf("child-operation-%d", i),
-			trace.WithAttributes(
-				attribute.String("child.type", "db"),
-				attribute.Int("child.id", i),
-			))
+			trace.WithAttributes(childAttrs...))
 		time.Sleep(time.Millisecond * time.Duration(rand.Intn(50)))
 		childSpan.End()
 	}

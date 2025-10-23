@@ -19,7 +19,7 @@ import (
 )
 
 // GenerateMetrics generates metric data and sends it to the specified OTLP endpoint
-func GenerateMetrics(endpoint *Endpoint, serviceName string, rate int, durationStr string, headers map[string]string, verbose bool, insecureSkip bool) error {
+func GenerateMetrics(endpoint *Endpoint, serviceName string, rate int, durationStr string, payloadSize int64, headers map[string]string, verbose bool, insecureSkip bool) error {
 	duration, err := time.ParseDuration(durationStr)
 	if err != nil {
 		return fmt.Errorf("invalid duration: %w", err)
@@ -207,17 +207,22 @@ func GenerateMetrics(endpoint *Endpoint, serviceName string, rate int, durationS
 
 			return nil
 		case <-ticker.C:
-			// Record counter
-			counter.Add(ctx, 1, metric.WithAttributes(
+			// Create attributes list
+			attrs := []attribute.KeyValue{
 				attribute.String("method", "GET"),
 				attribute.String("endpoint", "/api/test"),
-			))
+			}
+
+			// Add padding attribute if size is specified
+			if payloadSize > 0 {
+				attrs = append(attrs, attribute.String("payload.data", GeneratePadding(payloadSize)))
+			}
+
+			// Record counter
+			counter.Add(ctx, 1, metric.WithAttributes(attrs...))
 
 			// Record histogram
-			histogram.Record(ctx, rand.Float64()*1000, metric.WithAttributes(
-				attribute.String("method", "GET"),
-				attribute.String("endpoint", "/api/test"),
-			))
+			histogram.Record(ctx, rand.Float64()*1000, metric.WithAttributes(attrs...))
 
 			count++
 
