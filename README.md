@@ -127,6 +127,7 @@ docker run --rm otelgen logs \
 | `--rate` | Number of telemetry items per second | 1 | No |
 | `--duration` | How long to generate telemetry (e.g., 10s, 1m, 1h) | 10s | No |
 | `--size` | Payload size to increase data volume (e.g., 1kb, 1mb, 500b) | - | No |
+| `--batch-size` | Maximum number of logs to batch before sending (logs only) | 512 | No |
 | `--headers` | Additional headers (e.g., key1=value1,key2=value2) | - | No |
 | `--verbose` | Enable verbose logging | false | No |
 | `--insecure-skip-verify` | Skip TLS certificate verification (insecure) | false | No |
@@ -166,6 +167,10 @@ If you don't specify a port in the endpoint URL, the following defaults are used
 
 # Test with custom payload size (500 bytes)
 ./otelgen logs --otlp-endpoint grpcs://example.com:443 --service test-app --size 500b --rate 5 --duration 1m
+
+# Large logs with smaller batch size to avoid gRPC message size limit (4MB)
+# For 1MB logs, use batch size of 3 to keep messages under 4MB
+./otelgen logs --otlp-endpoint grpcs://example.com:443 --service test-app --size 1mb --rate 10 --batch-size 3 --duration 10s
 ```
 
 ## What Gets Generated
@@ -193,6 +198,7 @@ If you don't specify a port in the endpoint URL, the following defaults are used
   - Database query metrics (30% of logs)
 - Additional attributes: component, request_id, user_id
 - When `--size` is specified, the JSON body is expanded to reach target size
+- **Batch Size**: Logs are batched before sending to improve efficiency. The default batch size is 512 logs. When using large log sizes (e.g., `--size=1mb`), you should reduce the batch size using `--batch-size` to avoid exceeding the gRPC message size limit (typically 4MB). For example, with 1MB logs, use `--batch-size=3` to keep messages under the limit.
 
 #### Sample Log Output
 ```json

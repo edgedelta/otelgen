@@ -154,7 +154,7 @@ func randomString(length int) string {
 }
 
 // GenerateLogs generates log data and sends it to the specified OTLP endpoint
-func GenerateLogs(endpoint *Endpoint, serviceName string, rate int, durationStr string, payloadSize int64, headers map[string]string, verbose bool, insecureSkip bool) error {
+func GenerateLogs(endpoint *Endpoint, serviceName string, rate int, durationStr string, payloadSize int64, batchSize int, headers map[string]string, verbose bool, insecureSkip bool) error {
 	duration, err := time.ParseDuration(durationStr)
 	if err != nil {
 		return fmt.Errorf("invalid duration: %w", err)
@@ -257,9 +257,19 @@ func GenerateLogs(endpoint *Endpoint, serviceName string, rate int, durationStr 
 
 	defer exporter.Shutdown(ctx)
 
+	// Create batch processor with configurable batch size
+	batchProcessor := sdklog.NewBatchProcessor(exporter,
+		sdklog.WithMaxQueueSize(batchSize*2), // Queue size should be larger than batch size
+		sdklog.WithExportMaxBatchSize(batchSize),
+	)
+
+	if verbose {
+		fmt.Printf("[VERBOSE] Configured batch processor with max batch size: %d\n", batchSize)
+	}
+
 	// Create log provider
 	lp := sdklog.NewLoggerProvider(
-		sdklog.WithProcessor(sdklog.NewBatchProcessor(exporter)),
+		sdklog.WithProcessor(batchProcessor),
 		sdklog.WithResource(res),
 	)
 	defer func() {

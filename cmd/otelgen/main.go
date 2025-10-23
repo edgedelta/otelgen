@@ -23,6 +23,7 @@ var (
 	rate          int
 	duration      string
 	size          string
+	batchSize     int
 	headers       map[string]string
 	verbose       bool
 	insecureSkip  bool
@@ -70,6 +71,7 @@ func main() {
 		RunE:  runLogs,
 	}
 	addCommonFlags(logsCmd)
+	logsCmd.Flags().IntVar(&batchSize, "batch-size", 512, "Maximum number of logs to batch before sending")
 
 	rootCmd.AddCommand(tracesCmd, metricsCmd, logsCmd)
 
@@ -166,6 +168,7 @@ func runLogs(cmd *cobra.Command, args []string) error {
 		if payloadSize > 0 {
 			fmt.Printf("Payload Size: %d bytes\n", payloadSize)
 		}
+		fmt.Printf("Batch Size: %d\n", batchSize)
 		fmt.Printf("Secure: %v\n", endpoint.Secure)
 		fmt.Printf("Protocol: %s\n", endpoint.Protocol)
 		fmt.Printf("Insecure Skip Verify: %v\n", insecureSkip)
@@ -178,5 +181,5 @@ func runLogs(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Generating logs to %s for service %s at %d/s for %s\n",
 		endpoint.String(), serviceName, rate, duration)
 
-	return otelgen.GenerateLogs(endpoint, serviceName, rate, duration, payloadSize, headers, verbose, insecureSkip)
+	return otelgen.GenerateLogs(endpoint, serviceName, rate, duration, payloadSize, batchSize, headers, verbose, insecureSkip)
 }
